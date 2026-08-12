@@ -1,4 +1,4 @@
-name: Tor test
+name: Tor
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y tor curl
 
-      - name: Create torrc
+      - name: Configure Tor
         run: |
           mkdir -p "$HOME/tor-data"
 
@@ -30,20 +30,16 @@ jobs:
           tor -f "$HOME/torrc" > "$HOME/tor.log" 2>&1 &
           echo $! > "$HOME/tor.pid"
 
-      - name: Wait for Tor
+      - name: Wait for bootstrap
         run: |
           for i in $(seq 1 120); do
             if grep -q "Bootstrapped 100% (done): Done" "$HOME/tor.log"; then
-              echo "Tor successfully bootstrapped"
+              echo "TOR OK"
               exit 0
             fi
-
-            echo "Waiting for Tor..."
-            tail -n 3 "$HOME/tor.log"
             sleep 5
           done
 
-          echo "Tor failed to bootstrap"
           cat "$HOME/tor.log"
           exit 1
 
@@ -52,8 +48,3 @@ jobs:
           curl \
             --socks5-hostname 127.0.0.1:9150 \
             https://check.torproject.org/api/ip
-
-      - name: Show Tor log
-        if: always()
-        run: |
-          cat "$HOME/tor.log"
