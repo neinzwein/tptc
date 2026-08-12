@@ -1,0 +1,59 @@
+name: Tor test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  tor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Install Tor
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tor curl
+
+      - name: Create torrc
+        run: |
+          mkdir -p "$HOME/tor-data"
+
+          cat > "$HOME/torrc" <<'EOF'
+          ClientOnly 1
+          SocksPort 127.0.0.1:9150
+          DataDirectory /home/runner/tor-data
+          Log notice stdout
+          EOF
+
+      - name: Start Tor
+        run: |
+          tor -f "$HOME/torrc" > "$HOME/tor.log" 2>&1 &
+          echo $! > "$HOME/tor.pid"
+
+      - name: Wait for Tor
+        run: |
+          for i in $(seq 1 120); do
+            if grep -q "Bootstrapped 100% (done): Done" "$HOME/tor.log"; then
+              echo "Tor successfully bootstrapped"
+              exit 0
+            fi
+
+            echo "Waiting for Tor..."
+            tail -n 3 "$HOME/tor.log"
+            sleep 5
+          done
+
+          echo "Tor failed to bootstrap"
+          cat "$HOME/tor.log"
+          exit 1
+
+      - name: Test SOCKS5
+        run: |
+          curl \
+            --socks5-hostname 127.0.0.1:9150 \
+            https://check.torproject.org/api/ip
+
+      - name: Show Tor log
+        if: always()
+        run: |
+          cat "$HOME/tor.log"
