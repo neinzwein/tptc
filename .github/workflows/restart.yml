@@ -1,0 +1,12 @@
+name: Restart Tor
+
+on:
+  workflow_dispatch:
+
+jobs:
+  restart:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Wait
+        run: sleep 10
