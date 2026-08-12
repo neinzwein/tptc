@@ -15,15 +15,24 @@ jobs:
           sudo apt-get install -y tor curl
 
       - name: Configure Tor
+        env:
+          TOR_BRIDGES: ${{ secrets.TOR_BRIDGES }}
         run: |
           mkdir -p "$HOME/tor-data"
 
-          cat > "$HOME/torrc" <<'EOF'
-          ClientOnly 1
-          SocksPort 127.0.0.1:9150
-          DataDirectory /home/runner/tor-data
-          Log notice stdout
-          EOF
+          {
+            echo "ClientOnly 1"
+            echo "UseBridges 1"
+
+            while IFS= read -r bridge; do
+              [ -z "$bridge" ] && continue
+              echo "Bridge $bridge"
+            done <<< "$TOR_BRIDGES"
+
+            echo "SocksPort 127.0.0.1:9150"
+            echo "DataDirectory $HOME/tor-data"
+            echo "Log notice stdout"
+          } > "$HOME/torrc"
 
       - name: Start Tor
         run: |
@@ -32,25 +41,33 @@ jobs:
 
       - name: Wait for Tor
         run: |
-          for i in $(seq 1 120); do
+          for i in $(seq 1 180); do
             if grep -q "Bootstrapped 100% (done): Done" "$HOME/tor.log"; then
+              echo "Tor successfully bootstrapped"
               exit 0
             fi
+
             sleep 5
           done
 
+          echo "Tor failed to bootstrap"
           cat "$HOME/tor.log"
           exit 1
 
-      - name: Test Tor
+      - name: Test SOCKS5
         run: |
           curl \
             --socks5-hostname 127.0.0.1:9150 \
             https://check.torproject.org/api/ip
 
-      - name: Keep alive
+      - name: Keep Tor running
         run: |
           while true; do
             echo "$(date) Tor is running"
             sleep 60
           done
+
+      - name: Show Tor log
+        if: always()
+        run: |
+          cat "$HOME/tor.log"
