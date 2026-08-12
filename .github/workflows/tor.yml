@@ -30,11 +30,10 @@ jobs:
           tor -f "$HOME/torrc" > "$HOME/tor.log" 2>&1 &
           echo $! > "$HOME/tor.pid"
 
-      - name: Wait for bootstrap
+      - name: Wait for Tor
         run: |
           for i in $(seq 1 120); do
             if grep -q "Bootstrapped 100% (done): Done" "$HOME/tor.log"; then
-              echo "TOR OK"
               exit 0
             fi
             sleep 5
@@ -43,8 +42,15 @@ jobs:
           cat "$HOME/tor.log"
           exit 1
 
-      - name: Test SOCKS5
+      - name: Test Tor
         run: |
           curl \
             --socks5-hostname 127.0.0.1:9150 \
             https://check.torproject.org/api/ip
+
+      - name: Keep alive
+        run: |
+          while true; do
+            echo "$(date) Tor is running"
+            sleep 60
+          done
